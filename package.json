@@ -1,0 +1,25 @@
+{
+  "name": "ai-web-summarizer",
+  "version": "1.0.0",
+  "description": "基于react的ai网页插件",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Augensturn/ai-web-summarizer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Augensturn/ai-web-summarizer/issues"
+  },
+  "homepage": "https://github.com/Augensturn/ai-web-summarizer#readme",
+  "devDependencies": {
+    "@types/chrome": "^0.1.36",
+    "typescript": "^5.9.3"
+  }
+}

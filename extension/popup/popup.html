@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI 网页总结插件</title>
+  <style>
+    html, body {
+      height: 600px;
+      overflow: hidden;
+    }
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    /* 整体布局 */
+    body {
+      width: 380px;
+      height: 600px;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      padding: 16px;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      background-color: #f0f2f5;
+      color: #333;
+    }
+
+    h3 {
+      margin: 12px 0 6px 0;
+      font-size: 16px;
+      color: #222;
+    }
+
+    /* 文本显示区域 */
+    #content-display,
+    #summary-display {
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      border-radius: 6px;
+      padding: 10px;
+      min-height: 200px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* 模式选择 */
+    #mode-select {
+      width: 100%;
+      padding: 6px 10px;
+      margin-bottom: 12px;
+      border-radius: 4px;
+      border: 1px solid #d9d9d9;
+      font-size: 13px;
+      background-color: #fff;
+    }
+
+    /* 按钮 */
+    #summarize-btn {
+      width: 100%;
+      padding: 10px;
+      background-color: #1890ff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    #summarize-btn:hover {
+      background-color: #40a9ff;
+    }
+
+    /* 历史记录容器 */
+    #history-container {
+      margin-top: 12px;
+      max-height: 400px;
+    }
+
+    #history-list {
+      overflow-y: auto;
+    }
+
+    /* 历史记录卡片 */
+    .history-card {
+      background-color: #fff;
+      border: 1px solid #d9d9d9;
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+    }
+
+    .history-card:hover {
+      background-color: #e6f7ff;
+      border-color: #91d5ff;
+      transform: translateY(-1px);
+    }
+
+    .record-title {
+      font-weight: bold;
+      color: #000;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    .record-meta {
+      font-size: 11px;
+      color: #888;
+    }
+
+    /* 滚动条美化 */
+    #content-display::-webkit-scrollbar,
+    #summary-display::-webkit-scrollbar,
+    #history-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #content-display::-webkit-scrollbar-thumb,
+    #summary-display::-webkit-scrollbar-thumb,
+    #history-list::-webkit-scrollbar-thumb {
+      background-color: rgba(0,0,0,0.2);
+      border-radius: 3px;
+    }
+
+    #content-display::-webkit-scrollbar-track,
+    #summary-display::-webkit-scrollbar-track,
+    #history-list::-webkit-scrollbar-track {
+      background: #f0f2f5;
+      margin: 5px 0;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid #d9d9d9;
+      background: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .tab-btn.active {
+      background: #e6f7ff;
+      border-color: #91d5ff;
+    }
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .history-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #filter-mode {
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #d9d9d9;
+      background: #fff;
+      font-size: 12px;
+      height: 28px;
+    }
+    #clear-history-btn {
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid #ff4d4f;
+      background: #fff;
+      color: #ff4d4f;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    #clear-history-btn:hover {
+      background: #fff1f0;
+      border-color: #ff7875;
+      color: #d9363e;
+    }
+    #summary-display {
+      flex: 1;
+      overflow-y: auto;
+    }
+    #history-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #ccc;
+      border-top-color: #1890ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="tabs">
+    <button id="tab-summary-btn" class="tab-btn active">AI 总结</button>
+    <button id="tab-history-btn" class="tab-btn">历史记录</button>
+  </div>
+
+  <div id="tab-summary-panel" class="tab-panel active">
+    <label for="mode-select">总结模式:</label>
+    <select id="mode-select">
+      <option value="brief">精简摘要</option>
+      <option value="points">要点列表</option>
+      <option value="study">学习笔记</option>
+    </select>
+    <button id="summarize-btn">生成 AI 总结</button>
+
+    <h3>AI 总结结果</h3>
+    <div id="summary-display">尚未生成</div>
+  </div>
+
+  <div id="tab-history-panel" class="tab-panel">
+    <h3 class="history-header">
+      历史记录
+      <span class="history-controls">
+        <select id="filter-mode">
+          <option value="all">全部模式</option>
+          <option value="brief">精简摘要</option>
+          <option value="points">要点列表</option>
+          <option value="study">学习笔记</option>
+        </select>
+        <button id="clear-history-btn">清空历史</button>
+      </span>
+    </h3>
+    <div id="history-list"></div>
+  </div>
+
+  <script src="markdown.js"></script>
+  <script src="popup.js"></script>
+</body>
