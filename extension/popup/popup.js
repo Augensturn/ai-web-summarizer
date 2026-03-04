@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabHistoryBtn = document.getElementById('tab-history-btn');
   const summaryPanel = document.getElementById('tab-summary-panel');
   const historyPanel = document.getElementById('tab-history-panel');
+  const summarizeBtn = document.getElementById('summarize-btn');
+  let connectionError = false;
 
   let allHistory = [];
   let displayedCount = 0;
@@ -17,11 +19,22 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.runtime.sendMessage({ type: 'GET_PAGE_CONTENT' }, (response) => {
     if (chrome.runtime.lastError) {
       console.error('获取内容失败：', chrome.runtime.lastError.message);
+      connectionError = true;
+      summarizeBtn.disabled = true;
+      summaryDisplay.innerText = '当前页面无法建立连接，已禁止生成总结';
       chrome.storage.local.get(['lastContent'], (res) => {
         currentContent = res?.lastContent || '';
       });
       return;
     }
+    if (response?.error === 'NO_RECEIVER') {
+      connectionError = true;
+      summarizeBtn.disabled = true;
+      summaryDisplay.innerText = '当前页面无法建立连接，已禁止生成总结';
+      return;
+    }
+    connectionError = false;
+    summarizeBtn.disabled = false;
     currentContent = response?.content || '';
   });
 
@@ -29,31 +42,26 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'PAGE_CONTENT') {
       currentContent = message.payload?.content || '';
+      connectionError = false;
+      summarizeBtn.disabled = false;
     }
   });
 
   // 生成 AI 总结
   document.getElementById('summarize-btn').addEventListener('click', () => {
-    const btn = document.getElementById('summarize-btn');
+    if (connectionError) {
+      return;
+    }
     const content = currentContent || '';
     let mode = 'brief';
     const select = document.getElementById('mode-select');
     if (select && select.value) mode = select.value;
 
-    btn.setAttribute('disabled', 'true');
-    summaryDisplay.innerHTML = '<span class="loader"></span><span>生成中...</span>';
-
     chrome.runtime.sendMessage(
       { type: 'AI_SUMMARIZE', payload: { content, mode } },
       (response) => {
-        if (chrome.runtime.lastError) {
-          summaryDisplay.innerText = '生成失败';
-          btn.removeAttribute('disabled');
-          return;
-        }
         const summary = response?.summary || '生成失败';
         summaryDisplay.innerHTML = renderMarkdown(summary);
-        btn.removeAttribute('disabled');
 
         // 保存历史
         chrome.storage.local.get(['history'], (res) => {
