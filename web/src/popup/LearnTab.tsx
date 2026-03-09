@@ -11,6 +11,7 @@ import Checkbox from 'antd/es/checkbox'
 import TreeSelect from 'antd/es/tree-select'
 
 import type { HistoryRecord } from './types'
+import { MindMapView, buildMindmapMarkdown, mindmapToImage } from './MindMapView'
 import { renderMarkdown } from './md'
 
 interface LearnTabProps {
@@ -86,7 +87,7 @@ export function LearnTab({
     }))
   }, [records, selectedTagKey])
 
-  const handleExport = (format: 'md' | 'word') => {
+  const handleExport = async (format: 'md' | 'word') => {
     if (!filtered.length) return
 
     // 如果有勾选，则只导出勾选的记录；否则导出当前筛选出的全部记录
@@ -99,11 +100,11 @@ export function LearnTab({
     const now = new Date()
     const title = `学习库导出_${now.toISOString().slice(0, 10)}`
 
-      const buildMarkdown = () => {
+      const buildMarkdown = async () => {
       const lines: string[] = []
       lines.push(`# 学习库导出`)
       lines.push('')
-        targetRecords.forEach((r, idx) => {
+      for (const [idx, r] of targetRecords.entries()) {
         lines.push(`## 问答 ${idx + 1}`)
         lines.push('')
         lines.push(`- 标题：${r.title || r.url}`)
@@ -115,15 +116,37 @@ export function LearnTab({
         lines.push(`### 总结 / 回答`)
         lines.push(r.summary || '')
         lines.push('')
-        lines.push(`### 笔记`)
-        lines.push(r.note || '')
-        lines.push('')
-      })
+        if (r.mode === 'brief') {
+          const mdMap = buildMindmapMarkdown(r.summary || '')
+          const img = await mindmapToImage(mdMap)
+
+            // 创建图片文件
+          const imgName = `mindmap_${r.timestamp}.png`
+
+          const res = await fetch(img)
+          const blob = await res.blob()
+
+          const imgUrl = URL.createObjectURL(blob)
+
+          // 下载图片
+          const a = document.createElement('a')
+          a.href = imgUrl
+          a.download = imgName
+          a.click()
+
+          URL.revokeObjectURL(imgUrl)
+
+          lines.push(`### 思维导图`)
+          lines.push('')
+          lines.push(`![mindmap](./${imgName})`)
+          lines.push('')
+  }
+      }
       return lines.join('\n')
     }
 
     if (format === 'md') {
-      const md = buildMarkdown()
+      const md = await buildMarkdown()
       const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -132,36 +155,30 @@ export function LearnTab({
       a.click()
       URL.revokeObjectURL(url)
     } else {
-      // 生成简单的 RTF，Word 等工具可以直接打开，避免 .doc HTML 兼容性问题
-      const md = buildMarkdown()
-      // const plain = md.replace(/\r\n/g, '\n')
-      // const escapeRtf = (text: string) =>
-      //   text
-      //     .replace(/\\/g, '\\\\')
-      //     .replace(/{/g, '\\{')
-      //     .replace(/}/g, '\\}')
-      //     .replace(/\n/g, '\\par\n')
-
-      // const rtfBody = escapeRtf(plain)
-      // const rtf = `{\\rtf1\\ansi\\deff0\n${rtfBody}\n}`
-
-      // const blob = new Blob([rtf], { type: 'application/rtf;charset=utf-8' })
-      const html = `
-          <html>
-           <head>
-             <meta charset="utf-8"/>
-             <title>${title}</title>
-           </head>
-           <body>
-            <pre>${md.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>
-           </body>
-          </html>
-      `
+      let html = `<html><head><meta charset="utf-8"/><title>${title}</title></head><body>`
+      for (const [idx, r] of targetRecords.entries()) {
+        html += `<h1>问答 ${idx + 1}</h1>`
+        html += `<p><b>标题：</b>${r.title || r.url}</p>`
+        html += `<p><b>链接：</b><a href="${r.url}">${r.url}</a></p>`
+        html += `<p><b>模式：</b>${r.mode}</p>`
+        html += `<p><b>时间：</b>${new Date(r.timestamp).toLocaleString()}</p>`
+        html += `<p><b>标签：</b>${(r.tags || []).join('，') || '无'}</p>`
+        html += `<h2>总结 / 回答</h2>`
+        html += `<div>${(r.summary || '').replace(/\n/g, '<br/>')}</div>`
+        if (r.mode === 'brief') {
+          const mdMap = buildMindmapMarkdown(r.summary || '')
+          const img = await mindmapToImage(mdMap)
+          html += `<h2>思维导图</h2><img src="${img}" style="width:600px"/>`
+        }
+        html += `<h2>笔记</h2>`
+        html += `<div>${(r.note || '').replace(/\n/g, '<br/>')}</div>`
+        html += '<hr/>'
+      }
+      html += '</body></html>'
       const blob = new Blob([html], { type: 'application/msword;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      // 使用 .doc 扩展名，Word 仍然可以正常打开 RTF 内容
       a.download = `${title}.doc`
       a.click()
       URL.revokeObjectURL(url)
@@ -336,25 +353,41 @@ export function LearnTab({
                   ))}
                 </Space>
                 {expandedIds.includes(record.timestamp) ? (
-                  <div
-                    className="md-content"
-                    style={{
-                      fontSize: 12,
-                      color: '#444',
-                      marginBottom: 6
-                    }}
-                    dangerouslySetInnerHTML={{
-                      __html: (() => {
-                        const text = (record.summary || '').trim()
-                        // 如果看起来是 HTML 片段（例如 <p>...</p>），直接作为 HTML 渲染
-                        if (text.startsWith('<') && text.endsWith('>')) {
-                          return text
-                        }
-                        // 否则按 Markdown 渲染，避免 *** 等原样显示
-                        return renderMarkdown(text)
-                      })()
-                    }}
-                  />
+                  <>
+                    <div
+                      className="md-content"
+                      style={{
+                        fontSize: 12,
+                        color: '#444',
+                        marginBottom: 6
+                      }}
+                      dangerouslySetInnerHTML={{
+                        __html: (() => {
+                          const text = (record.summary || '').trim()
+                          // 如果看起来是 HTML 片段（例如 <p>...</p>），直接作为 HTML 渲染
+                          if (text.startsWith('<') && text.endsWith('>')) {
+                            return text
+                          }
+                          // 否则按 Markdown 渲染，避免 *** 等原样显示
+                          return renderMarkdown(text)
+                        })()
+                      }}
+                    />
+                    {record.mode === 'brief' && (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          height: 220,
+                          border: '1px solid #f0f0f0',
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          background: '#fff'
+                        }}
+                      >
+                        <MindMapView markdown={record.summary || ''} />
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div
                     style={{

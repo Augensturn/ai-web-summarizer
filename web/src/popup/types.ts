@@ -11,6 +11,7 @@ export interface HistoryRecord {
   favorite?: boolean
   tags?: string[]
   note?: string
+  recommendation?: string
 }
 
 

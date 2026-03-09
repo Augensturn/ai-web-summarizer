@@ -27,6 +27,9 @@ interface SummaryTabProps {
   onAddToLibrary: () => void
   summaryView: 'text' | 'mindmap'
   setSummaryView: (v: 'text' | 'mindmap') => void
+  recommendHtml: string
+  recommendLoading: boolean
+  onGenerateRecommend: () => void
 }
 
 export function SummaryTab({
@@ -45,7 +48,10 @@ export function SummaryTab({
   setLibraryTags,
   onAddToLibrary,
   summaryView,
-  setSummaryView
+  setSummaryView,
+  recommendHtml,
+  recommendLoading,
+  onGenerateRecommend
 }: SummaryTabProps) {
 
   return (
@@ -140,6 +146,54 @@ export function SummaryTab({
             style={{ width: '100%' }}
             dangerouslySetInnerHTML={{ __html: summaryHtml }}
           />
+        )}
+      </Card>
+      <Card
+        size="small"
+        title="延伸学习推荐"
+        extra={(
+          <Button
+            size="small"
+            type="link"
+            onClick={onGenerateRecommend}
+            disabled={connectionError || isEmptySummary}
+            loading={recommendLoading}
+            style={{ padding: 0 }}
+          >
+            生成学习推荐
+          </Button>
+        )}
+        style={{ minHeight: 300, overflow: 'hidden' }}
+        bodyStyle={{ padding: 8, height: 160 }}
+      >
+        {recommendLoading ? (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Suspense fallback={null}>
+              <LazySpin />
+            </Suspense>
+          </div>
+        ) : recommendHtml && recommendHtml.trim().length > 0 ? (
+          <div
+            className="md-content"
+            style={{ width: '100%', height: '100%', overflowY: 'auto', fontSize: 12 }}
+            dangerouslySetInnerHTML={{ __html: recommendHtml }}
+          />
+        ) : (
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              color: '#9ca3af',
+              textAlign: 'center',
+              padding: '0 8px'
+            }}
+          >
+            点击右上角「生成学习推荐」，获取推荐学习主题、书籍方向、搜索关键词与学习路径。
+          </div>
         )}
       </Card>
     </Space>

@@ -30,6 +30,15 @@ function App() {
   const [displayedCount, setDisplayedCount] = useState(0)
   const [libraryTags, setLibraryTags] = useState<string[]>([])
   const [summaryView, setSummaryView] = useState<'text' | 'mindmap'>('text')
+  const [recommendMd, setRecommendMd] = useState('')
+  const [recommendLoading, setRecommendLoading] = useState(false)
+  const [recommendContext, setRecommendContext] = useState<{
+    content: string
+    summary: string
+    mode: HistoryRecord['mode']
+    userPrompt: string
+  } | null>(null)
+  const [currentRecordTs, setCurrentRecordTs] = useState<number | null>(null)
   const pageSize = 10
   const historyListRef = useRef<HTMLDivElement | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -107,6 +116,7 @@ function App() {
   }, [filteredHistory])
 
   const summaryHtml = useMemo(() => renderMarkdown(summary), [summary])
+  const recommendHtml = useMemo(() => renderMarkdown(recommendMd || ''), [recommendMd])
   const isEmptySummary = useMemo(() => {
     const s = (summary || '').trim()
     return s.length === 0 || s === '尚未生成'
@@ -126,9 +136,21 @@ function App() {
         setLoading(false)
         const text = response?.summary || '生成失败'
         setSummary(text)
+        // 每次重新生成总结时，清空之前的学习推荐，避免内容错位
+        setRecommendMd('')
         chrome.storage.local.get(['history'], (res: any) => {
           const list: HistoryRecord[] = res?.history || []
           setAllHistory(list)
+          if (list.length > 0) {
+            // 新生成的一条记录会被追加在最前面
+            setCurrentRecordTs(list[0].timestamp)
+            setRecommendContext({
+              content: list[0].content,
+              summary: list[0].summary,
+              mode: list[0].mode,
+              userPrompt: customPrompt
+            })
+          }
         })
       }
     )
@@ -224,6 +246,47 @@ function App() {
       chrome.storage.local.set({ allTags: next })
       return next
     })
+  }
+
+  const onGenerateRecommend = () => {
+    if (connectionError) return
+    if (isEmptySummary) return
+    const ctx = recommendContext || {
+      content: currentContent,
+      summary,
+      mode,
+      userPrompt: customPrompt
+    }
+    setRecommendLoading(true)
+    chrome.runtime.sendMessage(
+      {
+        type: 'AI_RECOMMEND',
+        payload: {
+          content: ctx.content,
+          summary: ctx.summary,
+          mode: ctx.mode,
+          userPrompt: ctx.userPrompt
+        }
+      },
+      (response: any) => {
+        setRecommendLoading(false)
+        const text = (response?.recommendation || '').trim()
+        setRecommendMd(text || '未能生成有效的学习推荐')
+        // 将推荐结果写回对应的历史记录，方便下次从历史记录打开时直接展示
+        if (text && text.length > 0) {
+          updateHistory(list => {
+            if (!list.length) return list
+            const targetTs =
+              currentRecordTs ??
+              [...list].sort((a, b) => b.timestamp - a.timestamp)[0]?.timestamp
+            if (!targetTs) return list
+            return list.map(r =>
+              r.timestamp === targetTs ? { ...r, recommendation: text } : r
+            )
+          })
+        }
+      }
+    )
   }
 
 
@@ -326,6 +389,9 @@ function App() {
                 onAddToLibrary={addCurrentSummaryToLibrary}
                 summaryView={summaryView}
                 setSummaryView={setSummaryView}
+                recommendHtml={recommendHtml}
+                recommendLoading={recommendLoading}
+                onGenerateRecommend={onGenerateRecommend}
               />
             ),
           },
@@ -345,6 +411,15 @@ function App() {
                 displayedCount={displayedCount}
                 onRecordClick={(record) => {
                   setSummary(record.summary)
+                  // 从历史记录打开问答时，切换当前记录，并恢复该条已有的学习推荐（如果有）
+                  setCurrentRecordTs(record.timestamp)
+                  setRecommendMd(record.recommendation || '')
+                  setRecommendContext({
+                    content: record.content,
+                    summary: record.summary,
+                    mode: record.mode,
+                    userPrompt: ''
+                  })
                   setActiveTab('summary')
                 }}
                 onUpdateTags={updateRecordTags}
