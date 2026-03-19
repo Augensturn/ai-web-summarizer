@@ -12,8 +12,8 @@ import type { DataNode } from 'antd/es/tree'
 import type { HistoryRecord } from './types'
 
 interface HistoryTabProps {
-  filterMode: 'all' | 'brief' | 'points' | 'study'
-  setFilterMode: (mode: 'all' | 'brief' | 'points' | 'study') => void
+  filterMode: 'all' | 'brief' | 'study'
+  setFilterMode: (mode: 'all' | 'brief' | 'study') => void
   filterTag: string | 'all'
   setFilterTag: (tag: string | 'all') => void
   allTags: string[];
@@ -86,7 +86,6 @@ export function HistoryTab({
             options={[
               { value: 'all', label: '全部模式' },
               { value: 'brief', label: '精简摘要' },
-              { value: 'points', label: '要点列表' },
               { value: 'study', label: '学习笔记' },
             ]}
             style={{ width: 120 }}
@@ -213,7 +212,7 @@ export function HistoryTab({
                     allowClear
                     size="small"
                     style={{ minWidth: 220 }}
-                    placeholder="选择标签（树形结构）"
+                    placeholder="选择并加入标签"
                     value={record.tags || []}
                     onChange={(value) => onUpdateTags(record.timestamp, value as string[])}
                     onClick={(e) => e.stopPropagation()}

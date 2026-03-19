@@ -18,14 +18,14 @@ import { LearnTab } from './LearnTab.tsx'
 function App() {
   const [currentContent, setCurrentContent] = useState('')
   const [summary, setSummary] = useState('尚未生成')
-  const [mode, setMode] = useState<'brief' | 'points' | 'study' | 'custom'>('custom')
+  const [mode, setMode] = useState<'brief' | 'study' | 'custom'>('custom')
   const [customPrompt, setCustomPrompt] = useState('')
   const [connectionError, setConnectionError] = useState(false)
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'summary' | 'history' | 'learn'>('summary')
   const [allHistory, setAllHistory] = useState<HistoryRecord[]>([])
   const [allTags, setAllTags] = useState<string[]>([])
-  const [filterMode, setFilterMode] = useState<'all' | 'brief' | 'points' | 'study'>('all')
+  const [filterMode, setFilterMode] = useState<'all' | 'brief' | 'study'>('all')
   const [filterTag, setFilterTag] = useState<string | 'all'>('all')
   const [displayedCount, setDisplayedCount] = useState(0)
   const [libraryTags, setLibraryTags] = useState<string[]>([])
@@ -191,6 +191,12 @@ function App() {
   const updateRecordNote = (ts: number, note: string) => {
     updateHistory(list =>
       list.map(r => r.timestamp === ts ? { ...r, note } : r)
+    )
+  }
+
+  const updateRecordSummary = (ts: number, summary: string) => {
+    updateHistory(list =>
+      list.map(r => r.timestamp === ts ? { ...r, summary } : r)
     )
   }
 
@@ -438,6 +444,7 @@ function App() {
                 allTags={allTags}
                 onUpdateTags={updateRecordTags}
                 onUpdateNote={updateRecordNote}
+                onUpdateSummary={updateRecordSummary}
                 selectedIds={selectedIds}
                 onToggleSelect={toggleSelectRecord}
                 onBatchDelete={deleteSelectedRecords}

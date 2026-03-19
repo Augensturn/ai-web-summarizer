@@ -19,6 +19,7 @@ interface LearnTabProps {
   allTags: string[]
   onUpdateTags: (ts: number, tags: string[]) => void
   onUpdateNote: (ts: number, note: string) => void
+  onUpdateSummary: (ts: number, summary: string) => void
   selectedIds: number[]
   onToggleSelect: (ts: number, checked: boolean) => void
   onBatchDelete: () => void
@@ -30,6 +31,7 @@ export function LearnTab({
   allTags,
   onUpdateTags,
   onUpdateNote,
+  onUpdateSummary,
   selectedIds,
   onToggleSelect,
   onBatchDelete,
@@ -37,6 +39,8 @@ export function LearnTab({
 }: LearnTabProps) {
   const [selectedTagKey, setSelectedTagKey] = useState<string | 'all'>('all')
   const [expandedIds, setExpandedIds] = useState<number[]>([])
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingSummary, setEditingSummary] = useState('')
 
   const treeData: DataNode[] = useMemo(() => {
     const rootChildren: DataNode[] = []
@@ -312,20 +316,71 @@ export function LearnTab({
                     marginBottom: 4
                   }}
                 >
-                  <Button
-                    type="link"
-                    size="small"
-                    onClick={() => {
-                      setExpandedIds(prev =>
-                        prev.includes(record.timestamp)
-                          ? prev.filter(id => id !== record.timestamp)
-                          : [...prev, record.timestamp]
-                      )
-                    }}
-                    style={{ padding: 0, fontSize: 12 }}
-                  >
-                    {expandedIds.includes(record.timestamp) ? '收起内容' : '展开完整问答'}
-                  </Button>
+                  <Space size="small">
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => {
+                        setExpandedIds(prev =>
+                          prev.includes(record.timestamp)
+                            ? prev.filter(id => id !== record.timestamp)
+                            : [...prev, record.timestamp]
+                        )
+                      }}
+                      style={{ padding: 0, fontSize: 12 }}
+                    >
+                      {expandedIds.includes(record.timestamp) ? '收起内容' : '展开完整问答'}
+                    </Button>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => {
+                        const text = record.summary || ''
+                        if (!text) return
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                          navigator.clipboard.writeText(text).catch(() => {})
+                        } else {
+                          const textarea = document.createElement('textarea')
+                          textarea.value = text
+                          textarea.style.position = 'fixed'
+                          textarea.style.left = '-9999px'
+                          document.body.appendChild(textarea)
+                          textarea.select()
+                          try {
+                            document.execCommand('copy')
+                          } catch {
+                            // ignore
+                          }
+                          document.body.removeChild(textarea)
+                        }
+                      }}
+                      style={{ padding: 0, fontSize: 12 }}
+                    >
+                      复制总结
+                    </Button>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => {
+                        if (editingId === record.timestamp) {
+                          onUpdateSummary(record.timestamp, editingSummary)
+                          setEditingId(null)
+                          setEditingSummary('')
+                          return
+                        }
+                        setEditingId(record.timestamp)
+                        setEditingSummary(record.summary || '')
+                        setExpandedIds(prev =>
+                          prev.includes(record.timestamp)
+                            ? prev
+                            : [...prev, record.timestamp]
+                        )
+                      }}
+                      style={{ padding: 0, fontSize: 12 }}
+                    >
+                      {editingId === record.timestamp ? '保存总结' : '编辑总结'}
+                    </Button>
+                  </Space>
                 </div>
                 <Space size={[4, 4]} wrap style={{ marginBottom: 6 }}>
                   <TreeSelect
@@ -354,38 +409,50 @@ export function LearnTab({
                 </Space>
                 {expandedIds.includes(record.timestamp) ? (
                   <>
-                    <div
-                      className="md-content"
-                      style={{
-                        fontSize: 12,
-                        color: '#444',
-                        marginBottom: 6
-                      }}
-                      dangerouslySetInnerHTML={{
-                        __html: (() => {
-                          const text = (record.summary || '').trim()
-                          // 如果看起来是 HTML 片段（例如 <p>...</p>），直接作为 HTML 渲染
-                          if (text.startsWith('<') && text.endsWith('>')) {
-                            return text
-                          }
-                          // 否则按 Markdown 渲染，避免 *** 等原样显示
-                          return renderMarkdown(text)
-                        })()
-                      }}
-                    />
-                    {record.mode === 'brief' && (
-                      <div
-                        style={{
-                          marginTop: 8,
-                          height: 220,
-                          border: '1px solid #f0f0f0',
-                          borderRadius: 6,
-                          overflow: 'hidden',
-                          background: '#fff'
-                        }}
-                      >
-                        <MindMapView markdown={record.summary || ''} />
-                      </div>
+                    {editingId === record.timestamp ? (
+                      <Input.TextArea
+                        rows={6}
+                        value={editingSummary}
+                        onChange={(e) => setEditingSummary(e.target.value)}
+                        placeholder="编辑总结内容"
+                        style={{ fontSize: 12, marginBottom: 6 }}
+                      />
+                    ) : (
+                      <>
+                        <div
+                          className="md-content"
+                          style={{
+                            fontSize: 12,
+                            color: '#444',
+                            marginBottom: 6
+                          }}
+                          dangerouslySetInnerHTML={{
+                            __html: (() => {
+                              const text = (record.summary || '').trim()
+                              // 如果看起来是 HTML 片段（例如 <p>...</p>），直接作为 HTML 渲染
+                              if (text.startsWith('<') && text.endsWith('>')) {
+                                return text
+                              }
+                              // 否则按 Markdown 渲染，避免 *** 等原样显示
+                              return renderMarkdown(text)
+                            })()
+                          }}
+                        />
+                        {record.mode === 'brief' && (
+                          <div
+                            style={{
+                              marginTop: 8,
+                              height: 220,
+                              border: '1px solid #f0f0f0',
+                              borderRadius: 6,
+                              overflow: 'hidden',
+                              background: '#fff'
+                            }}
+                          >
+                            <MindMapView markdown={record.summary || ''} />
+                          </div>
+                        )}
+                      </>
                     )}
                   </>
                 ) : (

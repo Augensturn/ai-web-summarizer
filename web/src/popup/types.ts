@@ -6,7 +6,7 @@ export interface HistoryRecord {
   title: string
   content: string
   summary: string
-  mode: 'brief' | 'points' | 'study' | 'custom'
+  mode: 'brief' | 'study' | 'custom' | string
   timestamp: number
   favorite?: boolean
   tags?: string[]

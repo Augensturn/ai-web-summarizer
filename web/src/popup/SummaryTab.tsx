@@ -12,8 +12,8 @@ const LazyEmpty = lazy(() => import('antd/es/empty'))
 
 interface SummaryTabProps {
   connectionError: boolean
-  mode: 'brief' | 'points' | 'study' | 'custom'
-  setMode: (mode: 'brief' | 'points' | 'study' | 'custom') => void
+  mode: 'brief' | 'study' | 'custom'
+  setMode: (mode: 'brief' | 'study' | 'custom') => void
   customPrompt: string
   setCustomPrompt: (prompt: string) => void
   onSummarize: () => void
@@ -63,7 +63,6 @@ export function SummaryTab({
         options={[
           { value: 'custom', label: '问答' },
           { value: 'brief', label: '精简摘要' },
-          { value: 'points', label: '要点列表' },
           { value: 'study', label: '学习笔记' },
         ]}
         style={{ width: '100%' }}
@@ -164,7 +163,7 @@ export function SummaryTab({
           </Button>
         )}
         style={{ minHeight: 300, overflow: 'hidden' }}
-        bodyStyle={{ padding: 8, height: 160 }}
+        bodyStyle={{ padding: 8, height: 300 }}
       >
         {recommendLoading ? (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
